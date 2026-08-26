@@ -1,4 +1,4 @@
-README (Simple Copy‑Paste Version)
+README
 STALKER 2 Auto‑Detect Mod Merger
 
 This tool is a PowerShell‑based mod conflict detector and auto‑merger for S.T.A.L.K.E.R. 2: Heart of Chornobyl.
