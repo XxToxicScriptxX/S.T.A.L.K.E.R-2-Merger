@@ -174,6 +174,20 @@ $btnRun.Add_Click({
         $PakDir  = Join-Path $Stalker2 "Content\Paks"
         $ModsDir = Join-Path $PakDir "~mods"
 
+        # -----------------------------------------------
+        # AUTO-LOCATE ~mods IN DEFAULT STEAM DIRECTORY
+        # -----------------------------------------------
+        $SteamMods = "C:\Program Files (x86)\Steam\steamapps\common\S.T.A.L.K.E.R. 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods"
+
+        if (Test-Path $SteamMods) {
+            Log "Detected ~mods folder in Steam directory:"
+            Log "  $SteamMods"
+            $ModsDir = $SteamMods
+        } else {
+            Log "Steam ~mods folder not found. Using auto-detected path:"
+            Log "  $ModsDir"
+        }
+
         Log "Game root: $GameRoot"
         Log "Mods folder: $ModsDir"
 
