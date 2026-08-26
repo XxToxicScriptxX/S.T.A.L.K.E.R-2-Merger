@@ -109,10 +109,14 @@ Disable the original conflicting mods
 Prefer a name that loads late if you rename it (e.g. zzz_MergedMod_P.pak)
 
 Script blocked by PowerShell
+```powershell
+powershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1
 PowerShellSet-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
 Or run once with:
+```powershell
 PowerShellpowershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1
-
+```
 Credits
 
 Community STALKER 2 merger scripts and guides
