@@ -1,6 +1,6 @@
 ##############################################
 # STALKER 2 MOD MERGER - AUTO-DETECT EXE VERSION
-# Supports non-standard installs (EXE in game root)
+# Supports Steam / GOG / Epic installs
 ##############################################
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -14,7 +14,7 @@ $ErrorActionPreference = "Stop"
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "STALKER 2 Auto-Detect Mod Merger"
-$form.Size = New-Object System.Drawing.Size(720, 540)
+$form.Size = New-Object System.Drawing.Size(720, 580)
 $form.StartPosition = "CenterScreen"
 
 $labelGame = New-Object System.Windows.Forms.Label
@@ -36,21 +36,54 @@ $btnRun.Text = "Run Merge"
 $btnRun.Location = New-Object System.Drawing.Point(10, 70)
 $btnRun.Size = New-Object System.Drawing.Size(120, 30)
 
+# -------------------------------
+# TOGGLES
+# -------------------------------
+
+$chkAutoDisable = New-Object System.Windows.Forms.CheckBox
+$chkAutoDisable.Text = "Auto-disable mods (Vortex list)"
+$chkAutoDisable.Location = New-Object System.Drawing.Point(150, 75)
+$chkAutoDisable.AutoSize = $true
+
+$chkShowConflicts = New-Object System.Windows.Forms.CheckBox
+$chkShowConflicts.Text = "Show conflict details"
+$chkShowConflicts.Location = New-Object System.Drawing.Point(350, 75)
+$chkShowConflicts.AutoSize = $true
+
+$chkDryRun = New-Object System.Windows.Forms.CheckBox
+$chkDryRun.Text = "Dry-Run (scan only, no merge)"
+$chkDryRun.Location = New-Object System.Drawing.Point(150, 95)
+$chkDryRun.AutoSize = $true
+
+$chkExportConflicts = New-Object System.Windows.Forms.CheckBox
+$chkExportConflicts.Text = "Export conflicts to conflicts.txt"
+$chkExportConflicts.Location = New-Object System.Drawing.Point(350, 95)
+$chkExportConflicts.AutoSize = $true
+
+$form.Controls.Add($chkAutoDisable)
+$form.Controls.Add($chkShowConflicts)
+$form.Controls.Add($chkDryRun)
+$form.Controls.Add($chkExportConflicts)
+
+# -------------------------------
+# STATUS + LOG WINDOW
+# -------------------------------
+
 $progressLabel = New-Object System.Windows.Forms.Label
 $progressLabel.Text = "Status: Waiting..."
 $progressLabel.AutoSize = $true
-$progressLabel.Location = New-Object System.Drawing.Point(10, 110)
+$progressLabel.Location = New-Object System.Drawing.Point(10, 130)
 
 $progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Location = New-Object System.Drawing.Point(10, 130)
+$progressBar.Location = New-Object System.Drawing.Point(10, 150)
 $progressBar.Size = New-Object System.Drawing.Size(680, 20)
 $progressBar.Minimum = 0
 $progressBar.Maximum = 100
 $progressBar.Value = 0
 
 $conflictBox = New-Object System.Windows.Forms.TextBox
-$conflictBox.Location = New-Object System.Drawing.Point(10, 160)
-$conflictBox.Size = New-Object System.Drawing.Size(680, 320)
+$conflictBox.Location = New-Object System.Drawing.Point(10, 180)
+$conflictBox.Size = New-Object System.Drawing.Size(680, 350)
 $conflictBox.Multiline = $true
 $conflictBox.ScrollBars = "Vertical"
 $conflictBox.ReadOnly = $true
@@ -62,6 +95,27 @@ $form.Controls.Add($btnRun)
 $form.Controls.Add($progressLabel)
 $form.Controls.Add($progressBar)
 $form.Controls.Add($conflictBox)
+
+# -------------------------------
+# INSTALL SOURCE DROPDOWN
+# -------------------------------
+
+$labelSource = New-Object System.Windows.Forms.Label
+$labelSource.Text = "Install Source:"
+$labelSource.Location = New-Object System.Drawing.Point(10, 540)
+$labelSource.AutoSize = $true
+
+$comboSource = New-Object System.Windows.Forms.ComboBox
+$comboSource.Location = New-Object System.Drawing.Point(100, 535)
+$comboSource.Size = New-Object System.Drawing.Size(200, 20)
+$comboSource.DropDownStyle = "DropDownList"
+$comboSource.Items.Add("Steam")
+$comboSource.Items.Add("GOG")
+$comboSource.Items.Add("Epic")
+$comboSource.SelectedIndex = 0
+
+$form.Controls.Add($labelSource)
+$form.Controls.Add($comboSource)
 
 # -------------------------------
 # HELPER FUNCTIONS
@@ -84,43 +138,26 @@ function Log {
 
 function Categorize-Conflict {
     param([string]$relPath)
-
     $lower = $relPath.ToLower()
 
-    if ($lower -match "npc" -or $lower -match "mutant" -or $lower -match "health" -or $lower -match "hp") {
-        return "NPC / Mutant HP"
-    }
-    elseif ($lower -match "loot" -or $lower -match "drop" -or $lower -match "inventory") {
-        return "Loot / Drops"
-    }
-    elseif ($lower -match "shop" -or $lower -match "vendor" -or $lower -match "price" -or $lower -match "economy") {
-        return "Economy / Shop Prices"
-    }
-    elseif ($lower -match "weapon" -or $lower -match "gun" -or $lower -match "ammo" -or $lower -match "ballistic") {
-        return "Weapons / Ballistics"
-    }
-    elseif ($lower -match "hud" -or $lower -match "ui" -or $lower -match "interface") {
-        return "HUD / UI"
-    }
-    else {
-        return "Other Gameplay / Misc"
-    }
+    if ($lower -match "npc|mutant|health|hp") { return "NPC / Mutant HP" }
+    elseif ($lower -match "loot|drop|inventory") { return "Loot / Drops" }
+    elseif ($lower -match "shop|vendor|price|economy") { return "Economy / Shop Prices" }
+    elseif ($lower -match "weapon|gun|ammo|ballistic") { return "Weapons / Ballistics" }
+    elseif ($lower -match "hud|ui|interface") { return "HUD / UI" }
+    else { return "Other Gameplay / Misc" }
 }
 
 function AutoDetect-RealExe {
     param([string]$selectedExe)
-
     $folder = Split-Path $selectedExe
 
-    # CASE 1: User selected Stalker2.exe in game root
     $try1 = Join-Path $folder "Stalker2\Binaries\Win64\Stalker2-Win64-Shipping.exe"
     if (Test-Path $try1) { return $try1 }
 
-    # CASE 2: User selected fake launcher EXE
     $try2 = Join-Path $folder "Binaries\Win64\Stalker2-Win64-Shipping.exe"
     if (Test-Path $try2) { return $try2 }
 
-    # CASE 3: User selected real EXE directly
     if ($selectedExe.ToLower().Contains("win64")) { return $selectedExe }
 
     return $null
@@ -158,47 +195,46 @@ $btnRun.Add_Click({
         $realExe = AutoDetect-RealExe $selectedExe
 
         if ($realExe -eq $null) {
-            [System.Windows.Forms.MessageBox]::Show("Could not auto-detect REAL EXE. Select the file inside Stalker2\\Binaries\\Win64.","Error","OK","Error")
+            [System.Windows.Forms.MessageBox]::Show("Could not auto-detect REAL EXE.","Error","OK","Error")
             return
         }
 
         Log "Real EXE detected:"
         Log "  $realExe"
 
-        # Build correct paths
         $Win64    = Split-Path $realExe
         $Binaries = Split-Path $Win64
         $Stalker2 = Split-Path $Binaries
         $GameRoot = Split-Path $Stalker2
 
         $PakDir  = Join-Path $Stalker2 "Content\Paks"
-        $ModsDir = Join-Path $PakDir "~mods"
 
-        # -----------------------------------------------
-        # AUTO-LOCATE ~mods IN DEFAULT STEAM DIRECTORY
-        # -----------------------------------------------
-        $SteamMods = "C:\Program Files (x86)\Steam\steamapps\common\S.T.A.L.K.E.R. 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods"
-
-        if (Test-Path $SteamMods) {
-            Log "Detected ~mods folder in Steam directory:"
-            Log "  $SteamMods"
-            $ModsDir = $SteamMods
-        } else {
-            Log "Steam ~mods folder not found. Using auto-detected path:"
-            Log "  $ModsDir"
+        # INSTALL SOURCE AUTO-LOCATOR
+        switch ($comboSource.SelectedItem) {
+            "Steam" {
+                $ModsDir = "C:\Program Files (x86)\Steam\steamapps\common\S.T.A.L.K.E.R. 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods"
+            }
+            "GOG" {
+                $ModsDir = "C:\GOG Games\STALKER 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods"
+            }
+            "Epic" {
+                $ModsDir = "C:\Program Files\Epic Games\STALKER2\Stalker2\Content\Paks\~mods"
+            }
         }
 
-        Log "Game root: $GameRoot"
+        if (!(Test-Path $ModsDir)) {
+            Log "Install source path not found. Falling back to auto-detected path."
+            $ModsDir = Join-Path $PakDir "~mods"
+        }
+
         Log "Mods folder: $ModsDir"
 
         if (!(Test-Path $ModsDir)) {
-            [System.Windows.Forms.MessageBox]::Show("~mods folder not found at:`n$ModsDir","Error","OK","Error")
+            [System.Windows.Forms.MessageBox]::Show("~mods folder not found.","Error","OK","Error")
             return
         }
 
-        # -------------------------------
         # AUTO-BACKUP SYSTEM
-        # -------------------------------
         $BackupDir = Join-Path $ModsDir "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
         New-Item -ItemType Directory -Path $BackupDir | Out-Null
 
@@ -210,36 +246,33 @@ $btnRun.Add_Click({
 
         Log "All mods backed up before merge."
 
-        # 1) AES extraction
+        # AES extraction
         Set-Status "Extracting AES key...", 10
 
         $bytes = [System.IO.File]::ReadAllBytes($realExe)
         $hex   = [BitConverter]::ToString($bytes).Replace("-", "")
 
-        # Try with 0x prefix
         $regex1 = [regex]"0x[0-9A-F]{64}"
         $match1 = $regex1.Match($hex)
 
-        # Try plain 64-hex sequence (no 0x)
         $regex2 = [regex]"[0-9A-F]{64}"
         $match2 = $regex2.Match($hex)
 
         if ($match1.Success) {
             $AESKey = $match1.Value
-            Log "AES Key (0x-prefixed) extracted: $AESKey"
         }
         elseif ($match2.Success) {
             $AESKey = "0x" + $match2.Value
-            Log "AES Key (plain hex) extracted: $AESKey"
         }
         else {
-            [System.Windows.Forms.MessageBox]::Show("AES key not found in executable (no 64-hex sequence detected).","Error","OK","Error")
+            [System.Windows.Forms.MessageBox]::Show("AES key not found.","Error","OK","Error")
             return
         }
 
         Set-Content -Path ".\aes_key.txt" -Value $AESKey
+        Log "AES key extracted."
 
-        # 2) Unpack base game
+        # Unpack base game
         Set-Status "Unpacking base game...", 20
         $basePak = Join-Path $PakDir "pakchunk0-Windows.pak"
         $baseOut = Join-Path $PakDir "pakchunk0-Windows"
@@ -251,7 +284,7 @@ $btnRun.Add_Click({
             Log "Base game already unpacked."
         }
 
-        # 3) Unpack mods
+        # Unpack mods
         Set-Status "Unpacking mods...", 35
         $pakFiles     = Get-ChildItem $ModsDir -Filter "*.pak"
         $unpackedMods = @{}
@@ -277,7 +310,7 @@ $btnRun.Add_Click({
             }
         }
 
-        # 4) Detect conflicts
+        # Detect conflicts
         Set-Status "Scanning for conflicts...", 50
         $fileMap = @{}
 
@@ -297,44 +330,79 @@ $btnRun.Add_Click({
 
         $conflicts = $fileMap.GetEnumerator() | Where-Object { $_.Value.Count -gt 1 }
 
+        # DRY-RUN MODE
+        if ($chkDryRun.Checked) {
+            Log ""
+            Log "DRY-RUN MODE ENABLED — NO MERGE WILL BE PERFORMED"
+            Log ""
+
+            foreach ($c in $conflicts) {
+                $relPath = $c.Key
+                $mods    = $c.Value
+                Log ("FILE: " + $relPath)
+                Log ("  MODS: " + ($mods -join ', '))
+                Log ""
+            }
+
+            if ($chkExportConflicts.Checked) {
+                $report = @()
+                $report += "Conflict Report"
+                $report += "==============="
+                foreach ($c in $conflicts) {
+                    $relPath = $c.Key
+                    $mods    = $c.Value
+                    $report += "FILE: $relPath"
+                    $report += "  MODS: " + ($mods -join ', ')
+                    $report += ""
+                }
+                $report | Set-Content "conflicts.txt"
+                Log "Conflict report exported to conflicts.txt"
+            }
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Dry-run complete. No merge performed.",
+                "Dry-Run",
+                "OK",
+                "Information"
+            )
+
+            return
+        }
+
         if ($conflicts.Count -eq 0) {
             Set-Status "No conflicts found.", 100
             Log "Your mods do not overlap. No merge needed."
             return
         }
 
-        Log ""
-        Log "Conflicts detected (grouped by category):"
-
-        $modDisableSet = New-Object System.Collections.Generic.HashSet[string]
-        $categoryMap   = @{}
-
-
-        foreach ($c in $conflicts) {
-            $relPath = $c.Key
-            $mods    = $c.Value
-            $category = Categorize-Conflict $relPath
-
-            if (-not $categoryMap.ContainsKey($category)) {
-                $categoryMap[$category] = @()
-            }
-            $categoryMap[$category] += $relPath
-
-            foreach ($m in $mods) {
-                [void]$modDisableSet.Add($m)
-            }
-        }
-
-        foreach ($cat in $categoryMap.Keys) {
+        if ($chkShowConflicts.Checked) {
             Log ""
-            Log "Category: $cat"
-            foreach ($rel in $categoryMap[$cat]) {
-                $mods = $fileMap[$rel]
-                Log ("  " + $rel + " <-- " + ($mods -join ', '))
+            Log "Conflicting files and the mods involved:"
+            foreach ($c in $conflicts) {
+                $relPath = $c.Key
+                $mods    = $c.Value
+                Log ("FILE: " + $relPath)
+                Log ("  MODS: " + ($mods -join ', '))
+                Log ""
             }
         }
 
-        # 5) Create merged folder
+        if ($chkExportConflicts.Checked) {
+            $report = @()
+            $report += "Conflict Report"
+            $report += "==============="
+            foreach ($c in $conflicts) {
+                $relPath = $c.Key
+                $mods    = $c.Value
+                $report += "FILE: $relPath"
+                $report += "  MODS: " + ($mods -join ', ')
+                $report += ""
+            }
+            $report | Set-Content "conflicts.txt"
+            Log "Conflict report exported to conflicts.txt"
+        }
+
+                # Create merged folder
         Set-Status "Creating merged mod folder...", 60
         $mergedFolder = Join-Path $ModsDir "MergedMod"
         if (Test-Path $mergedFolder) {
@@ -342,7 +410,7 @@ $btnRun.Add_Click({
         }
         New-Item -ItemType Directory -Path $mergedFolder | Out-Null
 
-        # 6) Copy safe files
+        # Copy safe files
         Set-Status "Copying safe files...", 70
         foreach ($modName in $unpackedMods.Keys) {
             $modFolder = $unpackedMods[$modName]
@@ -364,7 +432,7 @@ $btnRun.Add_Click({
             }
         }
 
-        # 7) Merge .cfg conflicts
+        # Merge .cfg conflicts
         Set-Status "Merging .cfg conflicts...", 80
         foreach ($c in $conflicts) {
             $relPath = $c.Key
@@ -401,9 +469,7 @@ $btnRun.Add_Click({
             Log "Merged: $relPath"
         }
 
-        # -------------------------------
         # AUTO-DELETE UNPACKED FOLDERS
-        # -------------------------------
         Set-Status "Cleaning up unpacked folders...", 85
 
         foreach ($modName in $unpackedMods.Keys) {
@@ -429,7 +495,7 @@ $btnRun.Add_Click({
             }
         }
 
-        # 8) Pack merged mod
+        # Pack merged mod
         Set-Status "Packing merged mod...", 90
         & ".\repak.exe" pack "`"$mergedFolder`""
 
@@ -438,19 +504,38 @@ $btnRun.Add_Click({
         Log "MergedMod.pak created successfully."
         Log "Place MergedMod.pak in your ~mods folder."
 
-        Log ""
-        Log "Disable these mods in Vortex (they were merged):"
-        foreach ($m in $modDisableSet) {
-            Log ("  - " + $m)
+        # Auto-disable mods list
+        $modDisableSet = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($c in $conflicts) {
+            foreach ($m in $c.Value) {
+                [void]$modDisableSet.Add($m)
+            }
         }
 
-        $disableList = ($modDisableSet | Sort-Object) -join "`n  - "
-        [System.Windows.Forms.MessageBox]::Show(
-            "MergedMod.pak created successfully.`n`nPlace it in ~mods, then disable these mods in Vortex:`n`n  - $disableList",
-            "Success",
-            "OK",
-            "Information"
-        )
+        if ($chkAutoDisable.Checked) {
+            Log ""
+            Log "Disable these mods in Vortex (they were merged):"
+            foreach ($m in $modDisableSet) {
+                Log ("  - " + $m)
+            }
+
+            $disableList = ($modDisableSet | Sort-Object) -join "`n  - "
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "MergedMod.pak created successfully.`n`nPlace it in ~mods, then disable these mods in Vortex:`n`n  - $disableList",
+                "Success",
+                "OK",
+                "Information"
+            )
+        }
+        else {
+            [System.Windows.Forms.MessageBox]::Show(
+                "MergedMod.pak created successfully.`n`nCheck the log window for details.",
+                "Success",
+                "OK",
+                "Information"
+            )
+        }
     }
     catch {
         [System.Windows.Forms.MessageBox]::Show("Error: $($_.Exception.Message)","Error","OK","Error")
@@ -463,3 +548,4 @@ $btnRun.Add_Click({
 # -------------------------------
 
 [void]$form.ShowDialog()
+
