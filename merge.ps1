@@ -182,34 +182,48 @@ $btnRun.Add_Click({
             return
         }
 
+        # -------------------------------
+        # AUTO-BACKUP SYSTEM
+        # -------------------------------
+        $BackupDir = Join-Path $ModsDir "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        New-Item -ItemType Directory -Path $BackupDir | Out-Null
+
+        Log "Backup folder created: $BackupDir"
+
+        Get-ChildItem $ModsDir -Filter "*.pak" | ForEach-Object {
+            Copy-Item $_.FullName $BackupDir -Force
+        }
+
+        Log "All mods backed up before merge."
+
         # 1) AES extraction
         Set-Status "Extracting AES key...", 10
 
         $bytes = [System.IO.File]::ReadAllBytes($realExe)
-		$hex   = [BitConverter]::ToString($bytes).Replace("-", "")
+        $hex   = [BitConverter]::ToString($bytes).Replace("-", "")
 
-		# Try with 0x prefix
-		$regex1 = [regex]"0x[0-9A-F]{64}"
-		$match1 = $regex1.Match($hex)
+        # Try with 0x prefix
+        $regex1 = [regex]"0x[0-9A-F]{64}"
+        $match1 = $regex1.Match($hex)
 
-		# Try plain 64-hex sequence (no 0x)
-		$regex2 = [regex]"[0-9A-F]{64}"
-		$match2 = $regex2.Match($hex)
+        # Try plain 64-hex sequence (no 0x)
+        $regex2 = [regex]"[0-9A-F]{64}"
+        $match2 = $regex2.Match($hex)
 
-		if ($match1.Success) {
-			$AESKey = $match1.Value
-			Log "AES Key (0x-prefixed) extracted: $AESKey"
-		}
-		elseif ($match2.Success) {
-			$AESKey = "0x" + $match2.Value
-			Log "AES Key (plain hex) extracted: $AESKey"
-		}
-		else {
-			[System.Windows.Forms.MessageBox]::Show("AES key not found in executable (no 64-hex sequence detected).","Error","OK","Error")
-			return
-		}
+        if ($match1.Success) {
+            $AESKey = $match1.Value
+            Log "AES Key (0x-prefixed) extracted: $AESKey"
+        }
+        elseif ($match2.Success) {
+            $AESKey = "0x" + $match2.Value
+            Log "AES Key (plain hex) extracted: $AESKey"
+        }
+        else {
+            [System.Windows.Forms.MessageBox]::Show("AES key not found in executable (no 64-hex sequence detected).","Error","OK","Error")
+            return
+        }
 
-		Set-Content -Path ".\aes_key.txt" -Value $AESKey
+        Set-Content -Path ".\aes_key.txt" -Value $AESKey
 
         # 2) Unpack base game
         Set-Status "Unpacking base game...", 20
@@ -228,17 +242,31 @@ $btnRun.Add_Click({
         $pakFiles     = Get-ChildItem $ModsDir -Filter "*.pak"
         $unpackedMods = @{}
 
+
         foreach ($pak in $pakFiles) {
             Log "Unpacking mod: $($pak.Name)"
             & ".\repak.exe" unpack "`"$pak.FullName`""
+
             $folder = $pak.FullName.Substring(0, $pak.FullName.Length - 4)
-            Move-Item $folder $ModsDir -Force
-            $unpackedMods[$pak.Name] = $folder
+
+            if (Test-Path $folder) {
+                try {
+                    Move-Item $folder $ModsDir -Force
+                    $unpackedMods[$pak.Name] = $folder
+                }
+                catch {
+                    Log "Warning: Could not move unpacked folder for $($pak.Name). Skipping."
+                }
+            }
+            else {
+                Log "Warning: Mod folder missing after unpack: $($pak.Name). Skipping."
+            }
         }
 
         # 4) Detect conflicts
         Set-Status "Scanning for conflicts...", 50
         $fileMap = @{}
+
 
         foreach ($modName in $unpackedMods.Keys) {
             $modFolder = $unpackedMods[$modName]
@@ -266,6 +294,7 @@ $btnRun.Add_Click({
 
         $modDisableSet = New-Object System.Collections.Generic.HashSet[string]
         $categoryMap   = @{}
+
 
         foreach ($c in $conflicts) {
             $relPath = $c.Key
@@ -356,6 +385,34 @@ $btnRun.Add_Click({
 
             $content | Set-Content $mergedTarget
             Log "Merged: $relPath"
+        }
+
+        # -------------------------------
+        # AUTO-DELETE UNPACKED FOLDERS
+        # -------------------------------
+        Set-Status "Cleaning up unpacked folders...", 85
+
+        foreach ($modName in $unpackedMods.Keys) {
+            $modFolder = $unpackedMods[$modName]
+            if (Test-Path $modFolder) {
+                try {
+                    Remove-Item $modFolder -Recurse -Force
+                    Log "Deleted unpacked folder: $modFolder"
+                }
+                catch {
+                    Log "Warning: Could not delete unpacked folder: $modFolder"
+                }
+            }
+        }
+
+        if (Test-Path $baseOut) {
+            try {
+                Remove-Item $baseOut -Recurse -Force
+                Log "Deleted base unpack folder: $baseOut"
+            }
+            catch {
+                Log "Warning: Could not delete base unpack folder: $baseOut"
+            }
         }
 
         # 8) Pack merged mod
