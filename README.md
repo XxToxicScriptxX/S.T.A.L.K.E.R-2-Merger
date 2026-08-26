@@ -64,3 +64,68 @@ Place these **next to the script**:
 
 ```text
 S.T.A.L.K.E.R. 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods
+```
+How it works
+
+Scans ~mods for .pak / .ucas / .utoc sets
+Unpacks or converts them (repak and/or retoc)
+Builds a map of files → which mods provide them
+Merges overlapping .cfg files
+For other (binary) conflicts, applies last-wins
+Packs a single MergedMod.pak
+Leaves a full backup under _backup_YYYYMMDD_HHMMSS
+
+
+Important limitations
+
+
+Content typeMerge qualityConfig / .cfg filesGood (combined)Other text-like dataPartialBinary assets (.uasset, meshes, Blueprints, etc.)Not a real merge — one version wins
+
+Best suited for config / balance mod conflicts (the most common STALKER 2 case).
+Complex asset mods may still need manual load order or a hand-made compatibility patch.
+Always keep the automatic backup. Test in-game after merging.
+
+
+Options in the GUI
+
+
+
+OptionDescriptionRecursive searchFind mod files in subfolders under ~modsDry-runList conflicts only; no unpack/merge/packShow conflict detailsPrint every conflicting path in the logExport conflicts.txtWrite a report next to the scriptShow mods to disableList originals that were merged (for Vortex/MO2)Also try IOStore outputExperimental; may produce .pak+.ucas+.utoc (classic .pak remains the main result)
+
+Troubleshooting
+“AES key not found”
+
+Select the real shipping EXE (Stalker2-Win64-Shipping.exe under Binaries\Win64).
+“No mods could be unpacked”
+
+Confirm repak.exe / retoc.exe are next to the script
+Confirm the AES key was extracted
+Try Dry-run to see which tool is planned for each mod
+
+Merged mod has no effect
+
+Ensure MergedMod.pak is inside ~mods
+Disable the original conflicting mods
+Prefer a name that loads late if you rename it (e.g. zzz_MergedMod_P.pak)
+
+Script blocked by PowerShell
+PowerShellSet-ExecutionPolicy -Scope CurrentUser RemoteSigned
+Or run once with:
+PowerShellpowershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1
+
+Credits
+
+Community STALKER 2 merger scripts and guides
+repak by trumank
+retoc by trumank
+
+
+License
+Free to use and share.
+
+Please credit this project (and the tool authors above) if you redistribute or build on it.
+
+Disclaimer
+This tool modifies mod files in your game directory.
+
+Always keep backups. Use at your own risk. The authors are not responsible for broken saves, crashes, or corrupted installs.
