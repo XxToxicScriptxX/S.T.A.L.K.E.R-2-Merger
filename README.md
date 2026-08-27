@@ -15,7 +15,8 @@ A PowerShell tool that merges conflicting STALKER 2 mods with an interactive per
 ## Requirements
 - Windows 10/11
 - PowerShell 5.1 or newer
-- `repak.exe` and/or `retoc.exe` (place them next to the script)
+- repak.exe → https://github.com/trumank/repak/releases
+- retoc.exe (optional but recommended for IOStore mods) → https://github.com/trumank/retoc/releases
 
 ## How to Use
 
