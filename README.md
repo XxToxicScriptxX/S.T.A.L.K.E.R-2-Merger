@@ -1,135 +1,50 @@
 # STALKER 2 Mod Merger
 
-**Smart PowerShell GUI tool** for detecting and merging conflicting mods in *S.T.A.L.K.E.R. 2: Heart of Chornobyl*.
-
-Supports **classic `.pak`** and **IOStore** (`.pak` + `.ucas` + `.utoc`) mods. Built to reduce config conflicts so more mods can run together.
-
----
+A PowerShell tool that merges conflicting STALKER 2 mods with an interactive per-key CFG conflict resolver.
 
 ## Features
-
-- Detects `.pak`, `.ucas`, and `.utoc` (including in subfolders)
-- Auto-detects game install and `~mods` folder from the game executable
-- Uses **repak** for classic packs and **retoc** for IOStore when available
-- Smart tool routing with fallbacks (one failed mod does not stop the run)
-- Timestamped backup of all mod files before any changes
-- Dry-run mode (scan only, no merge)
-- Conflict report export (`conflicts.txt`)
-- Optional list of mods to disable after merging
-- Primary output: reliable `MergedMod.pak` (best for config conflicts)
-- Optional experimental IOStore output
-
----
+- Automatic detection of `.pak` / `.ucas` / `.utoc` mods
+- Priority-based merging
+- Interactive CFG conflict resolver (choose which mod’s value to keep for each key)
+- Manual “Resolve CFG Conflicts” button
+- Backup of original mods
+- Dry-run mode
+- Compatible with Windows PowerShell 5.1 and PowerShell 7+
+- Crash logging + PowerShell version logging
 
 ## Requirements
+- Windows 10/11
+- PowerShell 5.1 or newer
+- `repak.exe` and/or `retoc.exe` (place them next to the script)
 
-Place these **next to the script**:
+## How to Use
 
-| Tool | Required | Download |
-|------|----------|----------|
-| **repak.exe** | Yes (for classic `.pak`) | [trumank/repak releases](https://github.com/trumank/repak/releases) |
-| **retoc.exe** | Optional (for IOStore) | [trumank/retoc releases](https://github.com/trumank/retoc/releases) |
+1. Put the script, `repak.exe` and/or `retoc.exe` in the same folder.
+2. Right-click the script → **Run with PowerShell**.
+3. Select your `Stalker2.exe` (or use Auto-Detect).
+4. Click **Scan Mods**.
+5. Check the mods you want and order them (higher in the list = higher priority).
+6. (Recommended) Click **Resolve CFG Conflicts**, choose the values you want, then click **Done**.
+7. Click **Run Merge**.
+8. Disable the original conflicting mods and keep the new `MergedMod.pak`.
 
-- Windows 10/11  
-- PowerShell 5.1+ (included with Windows)
+## Options
+- **Show mods to disable** – Lists which original mods should be turned off
+- **Show conflict details** – Logs every conflicting file
+- **Dry-run only** – Simulates the merge without changing files
+- **Export conflicts.txt** – Writes a detailed conflict report
+- **Recursive search** – Scans subfolders inside `~mods`
+- **Also try IOStore output** – Attempts to create `.utoc` / `.ucas` files
 
----
+## Logs
+The tool creates several log files next to the script:
+- `ps_version_....txt` – PowerShell environment info
+- `merge_log_....txt` – Full merge log
+- `resolve_log_....txt` – CFG resolver log
+- `crash_log_....txt` – Crash details (only if something fails)
+- `conflicts.txt` – Optional conflict export
+- `aes_key.txt` – Extracted AES key
 
-## Installation
-
-1. Download or clone this repository.
-2. Put `repak.exe` (and optionally `retoc.exe`) in the same folder as `STALKER2_Merger.ps1`.
-3. Right-click the `.ps1` → **Properties** → enable **Unblock** if shown → Apply.
-4. Run:
-   - Right-click → **Run with PowerShell**, or  
-   - Open PowerShell in the folder and run:  
-     `powershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1`
-
----
-
-## Usage
-
-1. **Select** any STALKER 2 executable  
-   (`Stalker2.exe` or `Stalker2-Win64-Shipping.exe`).
-2. Click **Auto-Detect** (or browse to your `~mods` folder).
-3. Leave **Recursive search** enabled if you organize mods in subfolders.
-4. (Recommended) Enable **Dry-run** first to preview conflicts.
-5. Click **Run Merge**.
-6. Find the output in your mods folder:
-   - `MergedMod.pak` (main result)
-7. In Vortex / your mod manager, **disable** the original mods that were merged.
-8. Launch the game and test.
-
-### Typical mods path
-
-```text
-S.T.A.L.K.E.R. 2 Heart of Chornobyl\Stalker2\Content\Paks\~mods
-```
-How it works
-
-Scans ~mods for .pak / .ucas / .utoc sets
-Unpacks or converts them (repak and/or retoc)
-Builds a map of files → which mods provide them
-Merges overlapping .cfg files
-For other (binary) conflicts, applies last-wins
-Packs a single MergedMod.pak
-Leaves a full backup under _backup_YYYYMMDD_HHMMSS
-
-
-Important limitations
-
-
-Content typeMerge qualityConfig / .cfg filesGood (combined)Other text-like dataPartialBinary assets (.uasset, meshes, Blueprints, etc.)Not a real merge — one version wins
-
-Best suited for config / balance mod conflicts (the most common STALKER 2 case).
-Complex asset mods may still need manual load order or a hand-made compatibility patch.
-Always keep the automatic backup. Test in-game after merging.
-
-
-Options in the GUI
-
-
-
-OptionDescriptionRecursive searchFind mod files in subfolders under ~modsDry-runList conflicts only; no unpack/merge/packShow conflict detailsPrint every conflicting path in the logExport conflicts.txtWrite a report next to the scriptShow mods to disableList originals that were merged (for Vortex/MO2)Also try IOStore outputExperimental; may produce .pak+.ucas+.utoc (classic .pak remains the main result)
-
-Troubleshooting
-“AES key not found”
-
-Select the real shipping EXE (Stalker2-Win64-Shipping.exe under Binaries\Win64).
-“No mods could be unpacked”
-
-Confirm repak.exe / retoc.exe are next to the script
-Confirm the AES key was extracted
-Try Dry-run to see which tool is planned for each mod
-
-Merged mod has no effect
-
-Ensure MergedMod.pak is inside ~mods
-Disable the original conflicting mods
-Prefer a name that loads late if you rename it (e.g. zzz_MergedMod_P.pak)
-
-Script blocked by PowerShell
-```powershell
-powershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1
-PowerShellSet-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-Or run once with:
-```powershell
-PowerShellpowershell -ExecutionPolicy Bypass -File .\STALKER2_Merger.ps1
-```
-Credits
-
-Community STALKER 2 merger scripts and guides
-repak by trumank
-retoc by trumank
-
-
-License
-Free to use and share.
-
-Please credit this project (and the tool authors above) if you redistribute or build on it.
-
-Disclaimer
-This tool modifies mod files in your game directory.
-
-Always keep backups. Use at your own risk. The authors are not responsible for broken saves, crashes, or corrupted installs.
+## Notes
+- Always keep a backup of your `~mods` folder.
+- After merging, test in-game. You can restore from the `_backup_...` folder if needed.
